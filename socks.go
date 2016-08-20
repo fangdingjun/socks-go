@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 const (
@@ -15,8 +16,11 @@ const (
 	addrTypeIPv6   = 0x04
 )
 
+type dialFunc func(network, addr string) (net.Conn, error)
+
 type SocksConn struct {
 	ClientConn net.Conn
+	Dial       dialFunc
 }
 
 func (s *SocksConn) Serve() {
@@ -25,12 +29,18 @@ func (s *SocksConn) Serve() {
 	// read version
 	io.ReadFull(s.ClientConn, buf)
 
+	dial := s.Dial
+	if s.Dial == nil {
+		d := net.Dialer{Timeout: 10 * time.Second}
+		dial = d.Dial
+	}
+
 	switch buf[0] {
 	case socks4Version:
-		s4 := socks4Conn{client_conn: s.ClientConn}
+		s4 := socks4Conn{client_conn: s.ClientConn, dial: dial}
 		s4.Serve()
 	case socks5Version:
-		s5 := socks5Conn{client_conn: s.ClientConn}
+		s5 := socks5Conn{client_conn: s.ClientConn, dial: dial}
 		s5.Serve()
 	default:
 		log.Printf("error version %s", buf[0])

@@ -13,6 +13,7 @@ type socks5Conn struct {
 	//addr        string
 	client_conn net.Conn
 	server_conn net.Conn
+	dial        dialFunc
 }
 
 func (s5 *socks5Conn) Serve() {
@@ -107,7 +108,7 @@ func (s5 *socks5Conn) processRequest() error {
 	log.Printf("connecing to %s", target)
 
 	// connect to the target
-	s5.server_conn, err = net.Dial("tcp", target)
+	s5.server_conn, err = s5.dial("tcp", target)
 	if err != nil {
 		return err
 	}

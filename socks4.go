@@ -11,6 +11,7 @@ import (
 type socks4Conn struct {
 	server_conn net.Conn
 	client_conn net.Conn
+	dial        dialFunc
 }
 
 func (s4 *socks4Conn) Serve() {
@@ -92,7 +93,7 @@ func (s4 *socks4Conn) processRequest() error {
 	log.Printf("connecting to %s", target)
 
 	// connect to the target
-	s4.server_conn, err = net.Dial("tcp", target)
+	s4.server_conn, err = s4.dial("tcp", target)
 	if err != nil {
 		return err
 	}
