@@ -18,11 +18,13 @@ const (
 
 type dialFunc func(network, addr string) (net.Conn, error)
 
+// SocksConn present a client connection
 type SocksConn struct {
 	ClientConn net.Conn
 	Dial       dialFunc
 }
 
+// Serve serve the client
 func (s *SocksConn) Serve() {
 	buf := make([]byte, 1)
 

@@ -11,9 +11,9 @@ import (
 
 type socks5Conn struct {
 	//addr        string
-	client_conn net.Conn
-	server_conn net.Conn
-	dial        dialFunc
+	clientConn net.Conn
+	serverConn net.Conn
+	dial       dialFunc
 }
 
 func (s5 *socks5Conn) Serve() {
@@ -34,28 +34,28 @@ func (s5 *socks5Conn) handshake() error {
 	// only process auth methods here
 
 	buf := make([]byte, 258)
-	n, err := io.ReadAtLeast(s5.client_conn, buf, 1)
+	n, err := io.ReadAtLeast(s5.clientConn, buf, 1)
 	if err != nil {
 		return err
 	}
 
 	l := int(buf[0]) + 1
 	if n < l {
-		_, err := io.ReadFull(s5.client_conn, buf[n:l])
+		_, err := io.ReadFull(s5.clientConn, buf[n:l])
 		if err != nil {
 			return err
 		}
 	}
 
 	// no auth required
-	s5.client_conn.Write([]byte{0x05, 0x00})
+	s5.clientConn.Write([]byte{0x05, 0x00})
 
 	return nil
 }
 
 func (s5 *socks5Conn) processRequest() error {
 	buf := make([]byte, 258)
-	n, err := io.ReadAtLeast(s5.client_conn, buf, 10)
+	n, err := io.ReadAtLeast(s5.clientConn, buf, 10)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (s5 *socks5Conn) processRequest() error {
 	msglen = 6 + hlen
 
 	if n < msglen {
-		_, err := io.ReadFull(s5.client_conn, buf[n:msglen])
+		_, err := io.ReadFull(s5.clientConn, buf[n:msglen])
 		if err != nil {
 			return err
 		}
@@ -103,12 +103,12 @@ func (s5 *socks5Conn) processRequest() error {
 
 	// reply user with connect success
 	// if dial to target failed, user will receive connection reset
-	s5.client_conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
+	s5.clientConn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
 
 	log.Printf("connecing to %s", target)
 
 	// connect to the target
-	s5.server_conn, err = s5.dial("tcp", target)
+	s5.serverConn, err = s5.dial("tcp", target)
 	if err != nil {
 		return err
 	}
@@ -120,15 +120,15 @@ func (s5 *socks5Conn) processRequest() error {
 }
 
 func (s5 *socks5Conn) forward() {
-	go io.Copy(s5.client_conn, s5.server_conn)
-	io.Copy(s5.server_conn, s5.client_conn)
+	go io.Copy(s5.clientConn, s5.serverConn)
+	io.Copy(s5.serverConn, s5.clientConn)
 }
 
 func (s5 *socks5Conn) Close() {
-	if s5.server_conn != nil {
-		s5.server_conn.Close()
+	if s5.serverConn != nil {
+		s5.serverConn.Close()
 	}
-	if s5.client_conn != nil {
-		s5.client_conn.Close()
+	if s5.clientConn != nil {
+		s5.clientConn.Close()
 	}
 }
