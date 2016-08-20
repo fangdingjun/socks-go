@@ -39,10 +39,10 @@ func (s *SocksConn) Serve() {
 
 	switch buf[0] {
 	case socks4Version:
-		s4 := socks4Conn{client_conn: s.ClientConn, dial: dial}
+		s4 := socks4Conn{clientConn: s.ClientConn, dial: dial}
 		s4.Serve()
 	case socks5Version:
-		s5 := socks5Conn{client_conn: s.ClientConn, dial: dial}
+		s5 := socks5Conn{clientConn: s.ClientConn, dial: dial}
 		s5.Serve()
 	default:
 		log.Printf("error version %s", buf[0])
