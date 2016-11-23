@@ -3,6 +3,7 @@ socks-go
 
 A socks server implemented by golang, support socks4/4a, socks5.
 
+Only support connect command now.
 
 usage
 ====

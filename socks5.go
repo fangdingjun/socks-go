@@ -9,6 +9,31 @@ import (
 	"encoding/binary"
 )
 
+/*
+socks5 protocol
+
+initial
+
+byte | 0  |   1    | 2 | ...... | n |
+     |0x05|num auth|  auth methods  |
+
+
+reply
+
+byte | 0  |  1  |
+     |0x05| auth|
+
+
+request
+
+byte | 0  | 1 | 2  |   3    | 4 | .. | n-2 | n-1| n |
+     |0x05|cmd|0x00|addrtype|      addr    |  port  |
+
+response
+byte |0   |  1   | 2  |   3    | 4 | .. | n-2 | n-1 | n |
+     |0x05|status|0x00|addrtype|     addr     |  port   |
+
+*/
 type socks5Conn struct {
 	//addr        string
 	clientConn net.Conn

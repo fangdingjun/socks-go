@@ -8,6 +8,29 @@ import (
 	"net"
 )
 
+/*
+socks4 protocol
+
+request
+byte | 0  | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | ...  |
+     |0x04|cmd| port  |     ip        |  user\0  |
+
+reply
+byte | 0  |  1   | 2 | 3 | 4 | 5 | 6 | 7|
+     |0x00|status|       |              |
+
+
+socks4a protocol
+
+request
+byte | 0  | 1 | 2 | 3 |4 | 5 | 6 | 7 | 8 | ... |...     |
+     |0x04|cmd| port  |  0.0.0.x     |  user\0 |domain\0|
+
+reply
+byte | 0  |  1  | 2 | 3 | 4 | 5 | 6| 7 |
+	 |0x00|staus| port  |    ip        |
+
+*/
 type socks4Conn struct {
 	serverConn net.Conn
 	clientConn net.Conn
