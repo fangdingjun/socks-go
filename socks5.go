@@ -141,7 +141,7 @@ func (s5 *socks5Conn) forward() {
 
 	go func() {
 		io.Copy(s5.serverConn, s5.clientConn)
-		c < 1
+		c <- 1
 	}()
 
 	<-c
