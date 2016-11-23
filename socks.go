@@ -45,7 +45,7 @@ func (s *SocksConn) Serve() {
 		s5 := socks5Conn{clientConn: s.ClientConn, dial: dial}
 		s5.Serve()
 	default:
-		log.Printf("error version %s", buf[0])
+		log.Printf("error version %d", buf[0])
 		s.ClientConn.Close()
 	}
 }
