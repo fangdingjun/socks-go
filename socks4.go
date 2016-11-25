@@ -8,13 +8,38 @@ import (
 	"net"
 )
 
+/*
+socks4 protocol
+
+request
+byte | 0  | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | ...  |
+     |0x04|cmd| port  |     ip        |  user\0  |
+
+reply
+byte | 0  |  1   | 2 | 3 | 4 | 5 | 6 | 7|
+     |0x00|status|       |              |
+
+
+socks4a protocol
+
+request
+byte | 0  | 1 | 2 | 3 |4 | 5 | 6 | 7 | 8 | ... |...     |
+     |0x04|cmd| port  |  0.0.0.x     |  user\0 |domain\0|
+
+reply
+byte | 0  |  1  | 2 | 3 | 4 | 5 | 6| 7 |
+	 |0x00|staus| port  |    ip        |
+
+*/
 type socks4Conn struct {
-	server_conn net.Conn
-	client_conn net.Conn
+	serverConn net.Conn
+	clientConn net.Conn
+	dial       dialFunc
 }
 
 func (s4 *socks4Conn) Serve() {
 	defer s4.Close()
+
 	if err := s4.processRequest(); err != nil {
 		log.Println(err)
 		return
@@ -22,20 +47,30 @@ func (s4 *socks4Conn) Serve() {
 }
 
 func (s4 *socks4Conn) Close() {
-	if s4.client_conn != nil {
-		s4.client_conn.Close()
+	if s4.clientConn != nil {
+		s4.clientConn.Close()
 	}
-	if s4.server_conn != nil {
-		s4.server_conn.Close()
+
+	if s4.serverConn != nil {
+		s4.serverConn.Close()
 	}
 }
 
 func (s4 *socks4Conn) forward() {
+
+	c := make(chan int, 2)
+
 	go func() {
-		io.Copy(s4.client_conn, s4.server_conn)
+		io.Copy(s4.clientConn, s4.serverConn)
+		c <- 1
 	}()
 
-	io.Copy(s4.server_conn, s4.client_conn)
+	go func() {
+		io.Copy(s4.serverConn, s4.clientConn)
+		c <- 1
+	}()
+
+	<-c
 }
 
 func (s4 *socks4Conn) processRequest() error {
@@ -43,18 +78,22 @@ func (s4 *socks4Conn) processRequest() error {
 	// process command and target here
 
 	buf := make([]byte, 128)
-	n, err := io.ReadAtLeast(s4.client_conn, buf, 8)
+
+	// read header
+	n, err := io.ReadAtLeast(s4.clientConn, buf, 8)
 	if err != nil {
 		return err
 	}
 
-	// only support connect
+	// command only support connect
 	if buf[0] != cmdConnect {
 		return fmt.Errorf("error command %s", buf[0])
 	}
 
+	// get port
 	port := binary.BigEndian.Uint16(buf[1:3])
 
+	// get ip
 	ip := net.IP(buf[3:7])
 
 	// NULL-terminated user string
@@ -87,12 +126,12 @@ func (s4 *socks4Conn) processRequest() error {
 
 	// reply user with connect success
 	// if dial to target failed, user will receive connection reset
-	s4.client_conn.Write([]byte{0x00, 0x5a, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00})
+	s4.clientConn.Write([]byte{0x00, 0x5a, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00})
 
-	log.Printf("connecting to %s", target)
+	//log.Printf("connecting to %s\r\n", target)
 
 	// connect to the target
-	s4.server_conn, err = net.Dial("tcp", target)
+	s4.serverConn, err = s4.dial("tcp", target)
 	if err != nil {
 		return err
 	}

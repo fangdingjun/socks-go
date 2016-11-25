@@ -9,14 +9,41 @@ import (
 	"encoding/binary"
 )
 
+/*
+socks5 protocol
+
+initial
+
+byte | 0  |   1    | 2 | ...... | n |
+     |0x05|num auth|  auth methods  |
+
+
+reply
+
+byte | 0  |  1  |
+     |0x05| auth|
+
+
+request
+
+byte | 0  | 1 | 2  |   3    | 4 | .. | n-2 | n-1| n |
+     |0x05|cmd|0x00|addrtype|      addr    |  port  |
+
+response
+byte |0   |  1   | 2  |   3    | 4 | .. | n-2 | n-1 | n |
+     |0x05|status|0x00|addrtype|     addr     |  port   |
+
+*/
 type socks5Conn struct {
 	//addr        string
-	client_conn net.Conn
-	server_conn net.Conn
+	clientConn net.Conn
+	serverConn net.Conn
+	dial       dialFunc
 }
 
 func (s5 *socks5Conn) Serve() {
 	defer s5.Close()
+
 	if err := s5.handshake(); err != nil {
 		log.Println(err)
 		return
@@ -33,43 +60,50 @@ func (s5 *socks5Conn) handshake() error {
 	// only process auth methods here
 
 	buf := make([]byte, 258)
-	n, err := io.ReadAtLeast(s5.client_conn, buf, 1)
+
+	// read auth methods
+	n, err := io.ReadAtLeast(s5.clientConn, buf, 1)
 	if err != nil {
 		return err
 	}
 
 	l := int(buf[0]) + 1
 	if n < l {
-		_, err := io.ReadFull(s5.client_conn, buf[n:l])
+		// read remains data
+		_, err := io.ReadFull(s5.clientConn, buf[n:l])
 		if err != nil {
 			return err
 		}
 	}
 
 	// no auth required
-	s5.client_conn.Write([]byte{0x05, 0x00})
+	s5.clientConn.Write([]byte{0x05, 0x00})
 
 	return nil
 }
 
 func (s5 *socks5Conn) processRequest() error {
 	buf := make([]byte, 258)
-	n, err := io.ReadAtLeast(s5.client_conn, buf, 10)
+
+	// read header
+	n, err := io.ReadAtLeast(s5.clientConn, buf, 10)
 	if err != nil {
 		return err
 	}
+
 	if buf[0] != socks5Version {
-		return fmt.Errorf("error version %s", buf[0])
+		return fmt.Errorf("error version %d", buf[0])
 	}
 
-	// only support connect
+	// command only support connect
 	if buf[1] != cmdConnect {
 		return fmt.Errorf("unsupported command %s", buf[1])
 	}
 
-	hlen := 0
-	host := ""
-	msglen := 0
+	hlen := 0   // target address length
+	host := ""  // target address
+	msglen := 0 // header length
+
 	switch buf[3] {
 	case addrTypeIPv4:
 		hlen = 4
@@ -82,7 +116,8 @@ func (s5 *socks5Conn) processRequest() error {
 	msglen = 6 + hlen
 
 	if n < msglen {
-		_, err := io.ReadFull(s5.client_conn, buf[n:msglen])
+		// read remains header
+		_, err := io.ReadFull(s5.clientConn, buf[n:msglen])
 		if err != nil {
 			return err
 		}
@@ -96,18 +131,20 @@ func (s5 *socks5Conn) processRequest() error {
 		host = net.IP(addr).String()
 	}
 
+	// get target port
 	port := binary.BigEndian.Uint16(buf[msglen-2 : msglen])
 
+	// target address
 	target := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	// reply user with connect success
 	// if dial to target failed, user will receive connection reset
-	s5.client_conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
+	s5.clientConn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
 
-	log.Printf("connecing to %s", target)
+	//log.Printf("connecing to %s\r\n", target)
 
 	// connect to the target
-	s5.server_conn, err = net.Dial("tcp", target)
+	s5.serverConn, err = s5.dial("tcp", target)
 	if err != nil {
 		return err
 	}
@@ -119,15 +156,27 @@ func (s5 *socks5Conn) processRequest() error {
 }
 
 func (s5 *socks5Conn) forward() {
-	go io.Copy(s5.client_conn, s5.server_conn)
-	io.Copy(s5.server_conn, s5.client_conn)
+
+	c := make(chan int, 2)
+
+	go func() {
+		io.Copy(s5.clientConn, s5.serverConn)
+		c <- 1
+	}()
+
+	go func() {
+		io.Copy(s5.serverConn, s5.clientConn)
+		c <- 1
+	}()
+
+	<-c
 }
 
 func (s5 *socks5Conn) Close() {
-	if s5.server_conn != nil {
-		s5.server_conn.Close()
+	if s5.serverConn != nil {
+		s5.serverConn.Close()
 	}
-	if s5.client_conn != nil {
-		s5.client_conn.Close()
+	if s5.clientConn != nil {
+		s5.clientConn.Close()
 	}
 }

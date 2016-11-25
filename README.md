@@ -1,20 +1,21 @@
 socks-go
 =======
 
-A socks server implement by golang, support socks4/4a, socks5.
+A socks server implemented by golang, support socks4/4a, socks5.
 
+Only support connect command now.
 
 usage
 ====
 Usage example:
 
-    import "github.com/fangdingjun/socks"
+    import socks "github.com/fangdingjun/socks-go"
 
-    fucn main(){
+    func main(){
         l, _ := net.Listen("tcp", ":1080")
         for {
             conn, _ := l.Accept()
-            s := socks.SocksConn{conn}
-            go s.Serve()
+            s := socks.SocksConn{ClientConn: conn, Dial: nil} // Dial is a function which dial to the upstream server
+            go s.Serve() // serve the socks request
         }
     }
