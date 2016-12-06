@@ -1,6 +1,7 @@
 package socks
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -24,6 +25,16 @@ byte | 0  |  1  |
      |0x05| auth|
 
 
+username/password auth request
+
+byte | 0  |  1         |          |     1 byte   |          |
+     |0x01|username_len| username | password_len | password |
+
+username/password auth reponse
+
+byte | 0  | 1    |
+     |0x01|status|
+
 request
 
 byte | 0  | 1 | 2  |   3    | 4 | .. | n-2 | n-1| n |
@@ -34,6 +45,9 @@ byte |0   |  1   | 2  |   3    | 4 | .. | n-2 | n-1 | n |
      |0x05|status|0x00|addrtype|     addr     |  port   |
 
 */
+
+var Socks5AuthRequired bool
+
 type socks5Conn struct {
 	//addr        string
 	clientConn net.Conn
@@ -70,14 +84,93 @@ func (s5 *socks5Conn) handshake() error {
 	l := int(buf[0]) + 1
 	if n < l {
 		// read remains data
-		_, err := io.ReadFull(s5.clientConn, buf[n:l])
-		if err != nil {
+		if n1, err := io.ReadFull(s5.clientConn, buf[n:l]); err != nil {
 			return err
+		} else {
+			n += n1
 		}
 	}
 
-	// no auth required
-	s5.clientConn.Write([]byte{0x05, 0x00})
+	if !Socks5AuthRequired {
+		// no auth required
+		s5.clientConn.Write([]byte{0x05, 0x00})
+		return nil
+	}
+
+	hasPassAuth := false
+	var passAuth byte = 0x02
+
+	// check auth method
+	// only password(0x02) supported
+	for i := 1; i < n; i++ {
+		if buf[i] == passAuth {
+			hasPassAuth = true
+			break
+		}
+	}
+
+	if !hasPassAuth {
+		s5.clientConn.Write([]byte{0x05, 0xff})
+		return errors.New("no supported auth method")
+	}
+
+	err = s5.passwordAuth()
+	return err
+}
+
+func (s5 *socks5Conn) passwordAuth() error {
+	buf := make([]byte, 32)
+
+	// username/password required
+	s5.clientConn.Write([]byte{0x05, 0x02})
+	n, err := io.ReadAtLeast(s5.clientConn, buf, 2)
+	if err != nil {
+		return err
+	}
+
+	//log.Printf("%+v", buf[:n])
+
+	// check auth version
+	if buf[0] != 0x01 {
+		return errors.New("unsupported auth version")
+	}
+
+	username_len := int(buf[1])
+
+	p0 := 2
+	p1 := p0 + username_len
+
+	if n < p1 {
+		n1, err := s5.clientConn.Read(buf[n:])
+		if err != nil {
+			return err
+		}
+		n += n1
+	}
+
+	username := buf[p0:p1]
+	password_len := int(buf[p1])
+
+	p3 := p1 + 1
+	p4 := p3 + password_len
+
+	if n < p4 {
+		n1, err := s5.clientConn.Read(buf[n:])
+		if err != nil {
+			return err
+		}
+		n += n1
+	}
+
+	password := buf[p3:p4]
+
+	log.Printf("get username: %s, password: %s", username, password)
+
+	if string(username) == "" && string(password) == "" {
+		s5.clientConn.Write([]byte{0x01, 0x01})
+	} else {
+		s5.clientConn.Write([]byte{0x01, 0x00})
+	}
 
 	return nil
 }
