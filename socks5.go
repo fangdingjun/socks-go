@@ -46,9 +46,13 @@ byte |0   |  1   | 2  |   3    | 4 | .. | n-2 | n-1 | n |
 
 */
 
-var Socks5AuthRequired bool
+// Socks5AuthRequired means socks5 server need auth or not
 
 type socks5Conn struct {
+	// username
+	username string
+	// password
+	password string
 	//addr        string
 	clientConn net.Conn
 	serverConn net.Conn
@@ -84,14 +88,14 @@ func (s5 *socks5Conn) handshake() error {
 	l := int(buf[0]) + 1
 	if n < l {
 		// read remains data
-		if n1, err := io.ReadFull(s5.clientConn, buf[n:l]); err != nil {
+		n1, err := io.ReadFull(s5.clientConn, buf[n:l])
+		if err != nil {
 			return err
-		} else {
-			n += n1
 		}
+		n += n1
 	}
 
-	if !Socks5AuthRequired {
+	if s5.username == "" {
 		// no auth required
 		s5.clientConn.Write([]byte{0x05, 0x00})
 		return nil
@@ -135,10 +139,10 @@ func (s5 *socks5Conn) passwordAuth() error {
 		return errors.New("unsupported auth version")
 	}
 
-	username_len := int(buf[1])
+	usernameLen := int(buf[1])
 
 	p0 := 2
-	p1 := p0 + username_len
+	p1 := p0 + usernameLen
 
 	if n < p1 {
 		n1, err := s5.clientConn.Read(buf[n:])
@@ -149,10 +153,10 @@ func (s5 *socks5Conn) passwordAuth() error {
 	}
 
 	username := buf[p0:p1]
-	password_len := int(buf[p1])
+	passwordLen := int(buf[p1])
 
 	p3 := p1 + 1
-	p4 := p3 + password_len
+	p4 := p3 + passwordLen
 
 	if n < p4 {
 		n1, err := s5.clientConn.Read(buf[n:])
@@ -164,15 +168,17 @@ func (s5 *socks5Conn) passwordAuth() error {
 
 	password := buf[p3:p4]
 
-	log.Printf("get username: %s, password: %s", username, password)
+	// log.Printf("get username: %s, password: %s", username, password)
 
-	if string(username) == "" && string(password) == "" {
-		s5.clientConn.Write([]byte{0x01, 0x01})
-	} else {
+	if string(username) == s5.username && string(password) == s5.password {
 		s5.clientConn.Write([]byte{0x01, 0x00})
+		return nil
 	}
 
-	return nil
+	// auth failed
+	s5.clientConn.Write([]byte{0x01, 0x01})
+
+	return fmt.Errorf("wrong password")
 }
 
 func (s5 *socks5Conn) processRequest() error {
