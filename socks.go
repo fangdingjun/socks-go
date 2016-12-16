@@ -18,9 +18,9 @@ const (
 
 type dialFunc func(network, addr string) (net.Conn, error)
 
-// SocksConn present a client connection
-type SocksConn struct {
-	ClientConn net.Conn
+// Conn present a client connection
+type Conn struct {
+	net.Conn
 	// the function to dial to upstream server
 	// when nil, use net.Dial
 	Dial dialFunc
@@ -31,11 +31,11 @@ type SocksConn struct {
 }
 
 // Serve serve the client
-func (s *SocksConn) Serve() {
+func (s *Conn) Serve() {
 	buf := make([]byte, 1)
 
 	// read version
-	io.ReadFull(s.ClientConn, buf)
+	io.ReadFull(s.Conn, buf)
 
 	dial := s.Dial
 	if s.Dial == nil {
@@ -45,14 +45,14 @@ func (s *SocksConn) Serve() {
 
 	switch buf[0] {
 	case socks4Version:
-		s4 := socks4Conn{clientConn: s.ClientConn, dial: dial}
+		s4 := socks4Conn{clientConn: s.Conn, dial: dial}
 		s4.Serve()
 	case socks5Version:
-		s5 := socks5Conn{clientConn: s.ClientConn, dial: dial,
+		s5 := socks5Conn{clientConn: s.Conn, dial: dial,
 			username: s.Username, password: s.Password}
 		s5.Serve()
 	default:
 		log.Printf("error version %d", buf[0])
-		s.ClientConn.Close()
+		s.Conn.Close()
 	}
 }

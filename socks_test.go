@@ -56,7 +56,7 @@ func testSocks(t *testing.T, user, pass string, auth bool) error {
 			return
 		}
 		log.Printf("connected from %s", conn.RemoteAddr())
-		s := SocksConn{ClientConn: conn, Username: user, Password: pass}
+		s := Conn{Conn: conn, Username: user, Password: pass}
 		s.Serve()
 	}()
 
