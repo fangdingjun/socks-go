@@ -87,7 +87,7 @@ func (s4 *socks4Conn) processRequest() error {
 
 	// command only support connect
 	if buf[0] != cmdConnect {
-		return fmt.Errorf("error command %s", buf[0])
+		return fmt.Errorf("error command %d", buf[0])
 	}
 
 	// get port

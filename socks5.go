@@ -196,7 +196,7 @@ func (s5 *socks5Conn) processRequest() error {
 
 	// command only support connect
 	if buf[1] != cmdConnect {
-		return fmt.Errorf("unsupported command %s", buf[1])
+		return fmt.Errorf("unsupported command %d", buf[1])
 	}
 
 	hlen := 0   // target address length

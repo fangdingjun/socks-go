@@ -34,11 +34,11 @@ func (sc *Client) handShake() error {
 	}
 
 	if buf[0] != socks5Version {
-		return fmt.Errorf("error socks version %s", buf[0])
+		return fmt.Errorf("error socks version %d", buf[0])
 	}
 
 	if buf[1] != 0x00 && buf[1] != 0x02 {
-		return fmt.Errorf("server return with code %s", buf[1])
+		return fmt.Errorf("server return with code %d", buf[1])
 	}
 
 	if buf[1] == 0x00 {
