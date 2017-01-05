@@ -1,9 +1,9 @@
 socks-go
 =======
 
-A socks server implemented by golang, support socks4/4a, socks5.
+A socks proxy protocol implemented by golang, support socks 4, 4a and 5.
 
-Only support connect command now.
+Only CONNECT command support now.
 
 usage example
 =============
