@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 )
 
 // Client is a net.Conn with socks5 support
@@ -16,6 +17,7 @@ type Client struct {
 	Password      string
 	handshakeDone bool
 	connected     bool
+	closed        bool
 }
 
 func (sc *Client) handShake() error {
@@ -77,7 +79,34 @@ func (sc *Client) handShake() error {
 	return fmt.Errorf("password rejected")
 }
 
-// Connect connects to socks5 server and handshake
+// Dial dial to the addr from socks server
+// this is net.Dial style
+// can call sc.Connect instead
+func (sc *Client) Dial(network, addr string) (net.Conn, error) {
+	switch network {
+	case "tcp":
+	default:
+		return nil, fmt.Errorf("unsupported network type: %s", network)
+	}
+
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = sc.Connect(host, uint16(p)); err != nil {
+		return nil, err
+	}
+	return sc, nil
+}
+
+// Connect handshakes with the socks server and request the
+// server to connect to the target host and port
 func (sc *Client) Connect(host string, port uint16) error {
 	if !sc.handshakeDone {
 		if err := sc.handShake(); err != nil {
@@ -86,7 +115,7 @@ func (sc *Client) Connect(host string, port uint16) error {
 	}
 
 	if sc.connected {
-		return nil
+		return fmt.Errorf("only one connection allowed")
 	}
 
 	l := 4 + len(host) + 1 + 2
@@ -141,5 +170,9 @@ func (sc *Client) Write(b []byte) (int, error) {
 
 // Close close the underlying connection
 func (sc *Client) Close() error {
-	return sc.Conn.Close()
+	if !sc.closed {
+		sc.closed = true
+		return sc.Conn.Close()
+	}
+	return nil
 }
