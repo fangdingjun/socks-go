@@ -59,10 +59,10 @@ type socks5Conn struct {
 	dial       DialFunc
 }
 
-func (s5 *socks5Conn) Serve() {
+func (s5 *socks5Conn) Serve(b []byte, n int) {
 	defer s5.Close()
 
-	if err := s5.handshake(); err != nil {
+	if err := s5.handshake(b, n); err != nil {
 		log.Println(err)
 		return
 	}
@@ -73,22 +73,21 @@ func (s5 *socks5Conn) Serve() {
 	}
 }
 
-func (s5 *socks5Conn) handshake() error {
-	// version has already readed by socksConn.Serve()
-	// only process auth methods here
-
-	buf := make([]byte, 258)
+func (s5 *socks5Conn) handshake(buf []byte, n int) (err error) {
 
 	// read auth methods
-	n, err := io.ReadAtLeast(s5.clientConn, buf, 1)
-	if err != nil {
-		return err
+	if n < 2 {
+		n1, err := io.ReadAtLeast(s5.clientConn, buf[1:], 1)
+		if err != nil {
+			return err
+		}
+		n += n1
 	}
 
-	l := int(buf[0]) + 1
-	if n < l {
+	l := int(buf[1])
+	if n != (l + 2) {
 		// read remains data
-		n1, err := io.ReadFull(s5.clientConn, buf[n:l])
+		n1, err := io.ReadFull(s5.clientConn, buf[n:l+2+1])
 		if err != nil {
 			return err
 		}
@@ -106,7 +105,7 @@ func (s5 *socks5Conn) handshake() error {
 
 	// check auth method
 	// only password(0x02) supported
-	for i := 1; i < n; i++ {
+	for i := 2; i < n; i++ {
 		if buf[i] == passAuth {
 			hasPassAuth = true
 			break
@@ -236,39 +235,23 @@ func (s5 *socks5Conn) processRequest() error {
 	// target address
 	target := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
-	// reply user with connect success
-	// if dial to target failed, user will receive connection reset
-	s5.clientConn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
-
 	//log.Printf("connecing to %s\r\n", target)
 
 	// connect to the target
 	s5.serverConn, err = s5.dial("tcp", target)
 	if err != nil {
+		// connection failed
+		s5.clientConn.Write([]byte{0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
 		return err
 	}
 
+	// connection success
+	s5.clientConn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
+
 	// enter data exchange
-	s5.forward()
+	forward(s5.clientConn, s5.serverConn)
 
 	return nil
-}
-
-func (s5 *socks5Conn) forward() {
-
-	c := make(chan int, 2)
-
-	go func() {
-		io.Copy(s5.clientConn, s5.serverConn)
-		c <- 1
-	}()
-
-	go func() {
-		io.Copy(s5.serverConn, s5.clientConn)
-		c <- 1
-	}()
-
-	<-c
 }
 
 func (s5 *socks5Conn) Close() {

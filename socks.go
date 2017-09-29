@@ -33,10 +33,14 @@ type Conn struct {
 
 // Serve serve the client
 func (s *Conn) Serve() {
-	buf := make([]byte, 1)
+	buf := make([]byte, 512)
 
 	// read version
-	io.ReadFull(s.Conn, buf)
+	n, err := io.ReadAtLeast(s.Conn, buf, 1)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	dial := s.Dial
 	if s.Dial == nil {
@@ -47,13 +51,30 @@ func (s *Conn) Serve() {
 	switch buf[0] {
 	case socks4Version:
 		s4 := socks4Conn{clientConn: s.Conn, dial: dial}
-		s4.Serve()
+		s4.Serve(buf, n)
 	case socks5Version:
 		s5 := socks5Conn{clientConn: s.Conn, dial: dial,
 			username: s.Username, password: s.Password}
-		s5.Serve()
+		s5.Serve(buf, n)
 	default:
-		log.Printf("error version %d", buf[0])
+		log.Printf("unknown socks version 0x%x", buf[0])
 		s.Conn.Close()
 	}
+}
+
+func forward(c1, c2 io.ReadWriter) {
+
+	c := make(chan struct{}, 2)
+
+	go func() {
+		io.Copy(c1, c2)
+		c <- struct{}{}
+	}()
+
+	go func() {
+		io.Copy(c2, c1)
+		c <- struct{}{}
+	}()
+
+	<-c
 }

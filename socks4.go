@@ -37,10 +37,10 @@ type socks4Conn struct {
 	dial       DialFunc
 }
 
-func (s4 *socks4Conn) Serve() {
+func (s4 *socks4Conn) Serve(b []byte, n int) {
 	defer s4.Close()
 
-	if err := s4.processRequest(); err != nil {
+	if err := s4.processRequest(b, n); err != nil {
 		log.Println(err)
 		return
 	}
@@ -56,34 +56,18 @@ func (s4 *socks4Conn) Close() {
 	}
 }
 
-func (s4 *socks4Conn) forward() {
-
-	c := make(chan int, 2)
-
-	go func() {
-		io.Copy(s4.clientConn, s4.serverConn)
-		c <- 1
-	}()
-
-	go func() {
-		io.Copy(s4.serverConn, s4.clientConn)
-		c <- 1
-	}()
-
-	<-c
-}
-
-func (s4 *socks4Conn) processRequest() error {
-	// version has already read out by socksConn.Serve()
+func (s4 *socks4Conn) processRequest(buf []byte, n int) (err error) {
 	// process command and target here
 
-	buf := make([]byte, 128)
-
-	// read header
-	n, err := io.ReadAtLeast(s4.clientConn, buf, 8)
-	if err != nil {
-		return err
+	if n < 8 {
+		n1, err := io.ReadAtLeast(s4.clientConn, buf[n:], 8-n)
+		if err != nil {
+			return err
+		}
+		n += n1
 	}
+
+	buf = buf[1:n]
 
 	// command only support connect
 	if buf[0] != cmdConnect {
@@ -99,7 +83,7 @@ func (s4 *socks4Conn) processRequest() error {
 	// NULL-terminated user string
 	// jump to NULL character
 	var j int
-	for j = 7; j < n; j++ {
+	for j = 7; j < n-1; j++ {
 		if buf[j] == 0x00 {
 			break
 		}
@@ -114,7 +98,7 @@ func (s4 *socks4Conn) processRequest() error {
 		var i = j
 
 		// jump to the end of hostname
-		for j = i; j < n; j++ {
+		for j = i; j < n-1; j++ {
 			if buf[j] == 0x00 {
 				break
 			}
@@ -124,20 +108,21 @@ func (s4 *socks4Conn) processRequest() error {
 
 	target := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
-	// reply user with connect success
-	// if dial to target failed, user will receive connection reset
-	s4.clientConn.Write([]byte{0x00, 0x5a, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00})
-
 	//log.Printf("connecting to %s\r\n", target)
 
 	// connect to the target
 	s4.serverConn, err = s4.dial("tcp", target)
 	if err != nil {
+		// connection failed
+		s4.clientConn.Write([]byte{0x00, 0x5b, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00})
 		return err
 	}
 
+	// connection success
+	s4.clientConn.Write([]byte{0x00, 0x5a, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00})
+
 	// enter data exchange
-	s4.forward()
+	forward(s4.clientConn, s4.serverConn)
 
 	return nil
 }

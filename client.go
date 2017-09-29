@@ -30,8 +30,9 @@ func (sc *Client) handShake() error {
 		return err
 	}
 
-	buf := make([]byte, 2)
-	if _, err := io.ReadFull(sc.Conn, buf); err != nil {
+	buf := make([]byte, 512)
+
+	if _, err := io.ReadFull(sc.Conn, buf[:2]); err != nil {
 		return err
 	}
 
@@ -50,7 +51,7 @@ func (sc *Client) handShake() error {
 
 	// password auth
 
-	buf = make([]byte, 3+len(sc.Username)+len(sc.Password))
+	l := 3 + len(sc.Username) + len(sc.Password)
 
 	buf[0] = 0x01                                       // auth protocol version
 	buf[1] = byte(len(sc.Username))                     // username length
@@ -58,7 +59,7 @@ func (sc *Client) handShake() error {
 	buf[2+len(sc.Username)] = byte(len(sc.Password))    // password length
 	copy(buf[3+len(sc.Username):], []byte(sc.Password)) //password
 
-	if _, err := sc.Conn.Write(buf); err != nil {
+	if _, err := sc.Conn.Write(buf[:l]); err != nil {
 		return err
 	}
 
@@ -118,8 +119,9 @@ func (sc *Client) Connect(host string, port uint16) error {
 		return fmt.Errorf("only one connection allowed")
 	}
 
+	buf := make([]byte, 512)
+
 	l := 4 + len(host) + 1 + 2
-	buf := make([]byte, l)
 	buf[0] = socks5Version
 	buf[1] = cmdConnect
 	buf[2] = 0x00
@@ -130,22 +132,20 @@ func (sc *Client) Connect(host string, port uint16) error {
 
 	binary.BigEndian.PutUint16(buf[l-2:l], port)
 
-	if _, err := sc.Conn.Write(buf); err != nil {
+	if _, err := sc.Conn.Write(buf[:l]); err != nil {
 		return err
 	}
 
-	buf1 := make([]byte, 128)
-
-	if _, err := io.ReadAtLeast(sc.Conn, buf1, 10); err != nil {
+	if _, err := io.ReadAtLeast(sc.Conn, buf, 10); err != nil {
 		return err
 	}
 
-	if buf1[0] != socks5Version {
-		return fmt.Errorf("error socks version %d", buf1[0])
+	if buf[0] != socks5Version {
+		return fmt.Errorf("error socks version %d", buf[0])
 	}
 
-	if buf1[1] != 0x00 {
-		return fmt.Errorf("server error code %d", buf1[1])
+	if buf[1] != 0x00 {
+		return fmt.Errorf("server error code %d", buf[1])
 	}
 
 	sc.connected = true
