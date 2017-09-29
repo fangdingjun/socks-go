@@ -56,7 +56,7 @@ type socks5Conn struct {
 	//addr        string
 	clientConn net.Conn
 	serverConn net.Conn
-	dial       dialFunc
+	dial       DialFunc
 }
 
 func (s5 *socks5Conn) Serve() {

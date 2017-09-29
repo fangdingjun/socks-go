@@ -16,14 +16,15 @@ const (
 	addrTypeIPv6   = 0x04
 )
 
-type dialFunc func(network, addr string) (net.Conn, error)
+// DialFunc the function dial to remote
+type DialFunc func(network, addr string) (net.Conn, error)
 
 // Conn present a client connection
 type Conn struct {
 	net.Conn
 	// the function to dial to upstream server
 	// when nil, use net.Dial
-	Dial dialFunc
+	Dial DialFunc
 	// username for socks5 server
 	Username string
 	// password

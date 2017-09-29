@@ -34,7 +34,7 @@ byte | 0  |  1  | 2 | 3 | 4 | 5 | 6| 7 |
 type socks4Conn struct {
 	serverConn net.Conn
 	clientConn net.Conn
-	dial       dialFunc
+	dial       DialFunc
 }
 
 func (s4 *socks4Conn) Serve() {
