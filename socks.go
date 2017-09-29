@@ -19,7 +19,7 @@ const (
 // DialFunc the function dial to remote
 type DialFunc func(network, addr string) (net.Conn, error)
 
-// Conn present a client connection
+// Conn present a socks connection
 type Conn struct {
 	net.Conn
 	// the function to dial to upstream server

@@ -80,8 +80,8 @@ func (sc *Client) handShake() error {
 	return fmt.Errorf("password rejected")
 }
 
-// Dial dial to the addr from socks server
-// this is net.Dial style
+// Dial dial to the addr from socks server,
+// this is net.Dial style,
 // can call sc.Connect instead
 func (sc *Client) Dial(network, addr string) (net.Conn, error) {
 	switch network {
