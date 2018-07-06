@@ -1,5 +1,5 @@
 /*
-package socks implement a socks4/4a/5 protocol server and client
+Package socks implement a socks4/4a/5 protocol server and client.
 
 only support CONNECT command now
 
