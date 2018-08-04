@@ -4,7 +4,6 @@ import (
 	//"bytes"
 	//"fmt"
 	"errors"
-	"log"
 	"net"
 	"testing"
 )
@@ -21,13 +20,13 @@ func TestSocks(t *testing.T) {
 	}
 
 	if err := testSocks(t, "u3", "p3", false); err != nil {
-		log.Println(err)
+		t.Log(err)
 	} else {
 		t.Error("password not active")
 	}
 
 	if err := testSocks(t, "u3", "", false); err != nil {
-		log.Println(err)
+		t.Log(err)
 	} else {
 		t.Error("password not active")
 	}
@@ -55,7 +54,7 @@ func testSocks(t *testing.T, user, pass string, auth bool) error {
 		if err != nil {
 			return
 		}
-		log.Printf("connected from %s", conn.RemoteAddr())
+		t.Logf("connected from %s", conn.RemoteAddr())
 		s := Conn{Conn: conn, Auth: &passwordAuth{user, pass}}
 		s.Serve()
 	}()
@@ -65,7 +64,7 @@ func testSocks(t *testing.T, user, pass string, auth bool) error {
 		if err != nil {
 			return
 		}
-		log.Printf("server 2 accept connection from %s", conn.RemoteAddr())
+		t.Logf("server 2 accept connection from %s", conn.RemoteAddr())
 		defer conn.Close()
 		buf := make([]byte, 512)
 		n, err := conn.Read(buf)
@@ -91,7 +90,7 @@ func testSocks(t *testing.T, user, pass string, auth bool) error {
 		return err
 	}
 
-	log.Printf("connect success")
+	t.Logf("connect success")
 
 	str := "hello1234"
 	buf := make([]byte, 512)
