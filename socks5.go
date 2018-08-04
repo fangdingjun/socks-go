@@ -49,14 +49,11 @@ byte |0   |  1   | 2  |   3    | 4 | .. | n-2 | n-1 | n |
 // Socks5AuthRequired means socks5 server need auth or not
 
 type socks5Conn struct {
-	// username
-	username string
-	// password
-	password string
 	//addr        string
 	clientConn net.Conn
 	serverConn net.Conn
 	dial       DialFunc
+	auth       AuthService
 }
 
 func (s5 *socks5Conn) Serve(b []byte, n int) {
@@ -94,7 +91,7 @@ func (s5 *socks5Conn) handshake(buf []byte, n int) (err error) {
 		n += n1
 	}
 
-	if s5.username == "" {
+	if s5.auth == nil {
 		// no auth required
 		s5.clientConn.Write([]byte{0x05, 0x00})
 		return nil
@@ -169,15 +166,20 @@ func (s5 *socks5Conn) passwordAuth() error {
 
 	// log.Printf("get username: %s, password: %s", username, password)
 
-	if string(username) == s5.username && string(password) == s5.password {
-		s5.clientConn.Write([]byte{0x01, 0x00})
-		return nil
+	if s5.auth != nil {
+		ret := s5.auth.Authenticate(
+			string(username), string(password),
+			s5.clientConn.RemoteAddr())
+		if ret {
+			s5.clientConn.Write([]byte{0x01, 0x00})
+			return nil
+		}
+		s5.clientConn.Write([]byte{0x01, 0x01})
+
+		return errors.New("access denied")
 	}
 
-	// auth failed
-	s5.clientConn.Write([]byte{0x01, 0x01})
-
-	return fmt.Errorf("wrong password")
+	return errors.New("no auth method")
 }
 
 func (s5 *socks5Conn) processRequest() error {

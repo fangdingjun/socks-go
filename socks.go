@@ -25,10 +25,8 @@ type Conn struct {
 	// the function to dial to upstream server
 	// when nil, use net.Dial
 	Dial DialFunc
-	// username for socks5 server
-	Username string
-	// password
-	Password string
+	// Auth the auth service to authenticate the user for socks5
+	Auth AuthService
 }
 
 // Serve serve the client
@@ -53,8 +51,7 @@ func (s *Conn) Serve() {
 		s4 := socks4Conn{clientConn: s.Conn, dial: dial}
 		s4.Serve(buf, n)
 	case socks5Version:
-		s5 := socks5Conn{clientConn: s.Conn, dial: dial,
-			username: s.Username, password: s.Password}
+		s5 := socks5Conn{clientConn: s.Conn, dial: dial, auth: s.Auth}
 		s5.Serve(buf, n)
 	default:
 		log.Printf("unknown socks version 0x%x", buf[0])
