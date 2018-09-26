@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	//"log"
 	"net"
 	//"strconv"
 	"encoding/binary"
@@ -56,18 +56,19 @@ type socks5Conn struct {
 	auth       AuthService
 }
 
-func (s5 *socks5Conn) Serve(b []byte, n int) {
+func (s5 *socks5Conn) Serve(b []byte, n int) (err error) {
 	defer s5.Close()
 
-	if err := s5.handshake(b, n); err != nil {
-		log.Println(err)
+	if err = s5.handshake(b, n); err != nil {
+		//log.Println(err)
 		return
 	}
 
-	if err := s5.processRequest(); err != nil {
-		log.Println(err)
+	if err = s5.processRequest(); err != nil {
+		//log.Println(err)
 		return
 	}
+	return
 }
 
 func (s5 *socks5Conn) handshake(buf []byte, n int) (err error) {

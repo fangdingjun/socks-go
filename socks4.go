@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
+	//"log"
 	"net"
 )
 
@@ -37,13 +37,14 @@ type socks4Conn struct {
 	dial       DialFunc
 }
 
-func (s4 *socks4Conn) Serve(b []byte, n int) {
+func (s4 *socks4Conn) Serve(b []byte, n int) (err error) {
 	defer s4.Close()
 
-	if err := s4.processRequest(b, n); err != nil {
-		log.Println(err)
+	if err = s4.processRequest(b, n); err != nil {
+		//log.Println(err)
 		return
 	}
+	return
 }
 
 func (s4 *socks4Conn) Close() {
