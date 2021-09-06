@@ -10,12 +10,12 @@ type AuthService interface {
 }
 
 // default password auth service
-type passwordAuth struct {
+type PasswordAuth struct {
 	username string
 	password string
 }
 
-func (pa *passwordAuth) Authenticate(username, password string, addr net.Addr) bool {
+func (pa *PasswordAuth) Authenticate(username, password string, addr net.Addr) bool {
 	if username == pa.username && password == pa.password {
 		return true
 	}
