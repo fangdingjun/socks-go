@@ -3,12 +3,13 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
-	socks "github.com/fangdingjun/socks-go"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
+
+	socks "github.com/fangdingjun/socks-go"
 )
 
 func main() {
@@ -19,21 +20,21 @@ func main() {
 	}
 	defer c.Close()
 
-	sc := &socks.Client{Conn: c}
+	sc := &socks.Client{Conn: c, Username: "admin", Password: "passwd"}
 
 	// connect to remote server
-	if err := sc.Connect("www.google.com", 443); err != nil {
+	if err := sc.Connect("httpbin.org", 443); err != nil {
 		log.Fatal(err)
 	}
 
 	// tls
-	conn := tls.Client(sc, &tls.Config{ServerName: "www.google.com"})
+	conn := tls.Client(sc, &tls.Config{ServerName: "httpbin.org"})
 	if err := conn.Handshake(); err != nil {
 		log.Fatal(err)
 	}
 
 	// send http request
-	req, err := http.NewRequest("GET", "https://www.google.com/", nil)
+	req, err := http.NewRequest("GET", "https://httpbin.org/get", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

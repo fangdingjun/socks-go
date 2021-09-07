@@ -1,10 +1,11 @@
 package main
 
 import (
-	socks "github.com/fangdingjun/socks-go"
 	"log"
 	"net"
 	"time"
+
+	socks "github.com/fangdingjun/socks-go"
 )
 
 func main() {
@@ -12,7 +13,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	a := socks.PasswordAuth{Username: "admin", Password: "passwd"}
 	for {
 		c, err := conn.Accept()
 		if err != nil {
@@ -23,7 +24,7 @@ func main() {
 		log.Printf("connected from %s", c.RemoteAddr())
 
 		d := net.Dialer{Timeout: 10 * time.Second}
-		s := socks.Conn{Conn: c, Dial: d.Dial}
+		s := socks.Conn{Conn: c, Dial: d.Dial, Auth: &a}
 		go s.Serve()
 	}
 }
