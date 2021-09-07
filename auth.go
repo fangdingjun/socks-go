@@ -11,12 +11,12 @@ type AuthService interface {
 
 // default password auth service
 type PasswordAuth struct {
-	username string
-	password string
+	Username string
+	Password string
 }
 
 func (pa *PasswordAuth) Authenticate(username, password string, addr net.Addr) bool {
-	if username == pa.username && password == pa.password {
+	if username == pa.Username && password == pa.Password {
 		return true
 	}
 	return false
