@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
 	//"log"
 	"net"
 	//"strconv"
@@ -141,7 +142,7 @@ func (s5 *socks5Conn) passwordAuth() error {
 	p0 := 2
 	p1 := p0 + usernameLen
 
-	if n < p1 {
+	for n < p1 {
 		n1, err := s5.clientConn.Read(buf[n:])
 		if err != nil {
 			return err
@@ -155,7 +156,7 @@ func (s5 *socks5Conn) passwordAuth() error {
 	p3 := p1 + 1
 	p4 := p3 + passwordLen
 
-	if n < p4 {
+	for n < p4 {
 		n1, err := s5.clientConn.Read(buf[n:])
 		if err != nil {
 			return err
